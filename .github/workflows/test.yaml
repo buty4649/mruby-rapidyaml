@@ -26,7 +26,12 @@ jobs:
         with:
           ruby-version: 3.3
       - name: Run build and tests
-        run: rake all test
+        run: |
+          DEBUG=
+          if [ "$RUNNER_DEBUG" = "1" ]; then
+            DEBUG="--verbose"
+          fi
+          rake $DEBUG all test
 
       - name: Memory Leak Check
         if: matrix.runs-on == 'ubuntu-latest'
