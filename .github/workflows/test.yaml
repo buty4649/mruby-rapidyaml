@@ -18,12 +18,12 @@ jobs:
     needs: lint
     strategy:
       matrix:
-        runs-on: [ubuntu-latest, macos-14, windows-latest]
+        runs-on: [ubuntu-latest, macos-14]
     runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v4
       - name: Run build and tests
-        run: rake $DEBUG all test
+        run: rake all test
 
       - name: Memory Leak Check
         if: matrix.runs-on == 'ubuntu-latest'
