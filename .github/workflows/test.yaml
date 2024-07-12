@@ -23,15 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 3.3
       - name: Run build and tests
-        run: |
-          DEBUG=
-          if [ "$RUNNER_DEBUG" = "1" ]; then
-            DEBUG="--verbose"
-          fi
-          rake $DEBUG all test
+        run: rake $DEBUG all test
 
       - name: Memory Leak Check
         if: matrix.runs-on == 'ubuntu-latest'
