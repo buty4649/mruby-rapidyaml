@@ -4,4 +4,6 @@ MRuby::Gem::Specification.new('mruby-rapidyaml') do |spec|
   spec.summary = 'rapidyaml bindings for mruby'
   spec.description = 'rapidyaml bindings for mruby'
   spec.version = '1.0.0'
+
+  spec.cxx.flags << '-std=c++11'
 end

@@ -20151,7 +20151,7 @@ using Parser = ParseEngine<EventHandlerTree>;
 #endif /* C4_YML_EXPORT_HPP_ */
 
 
-#ifdef C4_MSVC
+#ifdef defined(C4_MSVC) || defined(C4_WIN)
 //included above:
 //#include <malloc.h>
 #else
