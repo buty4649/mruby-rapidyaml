@@ -1,5 +1,5 @@
 MRuby::Build.new do |conf|
-  conf.toolchain
+  conf.toolchain :gcc
 
   conf.gembox 'default'
   conf.gem File.expand_path(__dir__)
