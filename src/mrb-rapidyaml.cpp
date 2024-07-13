@@ -1,10 +1,13 @@
 #include <mruby.h>
 #include <mruby/array.h>
+#include <mruby/class.h>
 #include <mruby/hash.h>
 #include <mruby/string.h>
 #include <mruby/presym.h>
 
 #define RYML_SINGLE_HDR_DEFINE_NOW
+#define RYML_NO_DEFAULT_CALLBACKS
+#define RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS
 #include "ryml_all.hpp"
 
 #define scalar_to_mrb_str(v) mrb_str_new(mrb, v.str, v.len)
@@ -17,6 +20,55 @@
 typedef uint32_t parser_flag;
 
 #define mrb_obj_to_s(mrb, obj) mrb_funcall_id(mrb, obj, MRB_SYM(to_s), 0)
+
+struct RymlCallbacks
+{
+    RymlCallbacks(mrb_state *mrb) : mrb(mrb) {}
+    ~RymlCallbacks() { ryml::reset_callbacks(); }
+
+    mrb_state *mrb;
+
+    void set_callbacks()
+    {
+        ryml::Callbacks c;
+        c.m_user_data = this;
+        c.m_allocate = &RymlCallbacks::on_allocate;
+        c.m_free = &RymlCallbacks::on_free;
+        c.m_error = &RymlCallbacks::on_error;
+
+        ryml::set_callbacks(c);
+    }
+
+    static void *on_allocate(size_t len, void *hint, void *user_data)
+    {
+        mrb_state *mrb = ((RymlCallbacks *)user_data)->mrb;
+        void *mem = mrb_malloc(mrb, len);
+        if (mem == NULL)
+        {
+            mrb_raise(mrb, E_RUNTIME_ERROR, "could not allocate memory");
+        }
+        return mem;
+    }
+
+    static void on_free(void *mem, size_t size, void *user_data)
+    {
+        mrb_state *mrb = ((RymlCallbacks *)user_data)->mrb;
+        mrb_free(mrb, mem);
+    }
+
+    static void on_error(const char *err_msg, size_t len, ryml::Location loc, void *user_data)
+    {
+        mrb_state *mrb = ((RymlCallbacks *)user_data)->mrb;
+        struct RClass *err = mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(YAML)), MRB_SYM(SyntaxError));
+
+        // Remove the location information from the error message
+        c4::csubstr msg(err_msg, len);
+        c4::csubstr m = msg.sub(0, msg.find("\n"));
+        mrb_value e = mrb_str_new(mrb, m.str, m.len);
+
+        mrb_raise(mrb, err, RSTRING_PTR(e));
+    }
+};
 
 c4::csubstr mrb_value_to_scalar(mrb_state *mrb, mrb_value obj)
 {
@@ -130,6 +182,9 @@ mrb_value mrb_ryaml_dump(mrb_state *mrb, mrb_value self)
     mrb_value opts = mrb_nil_value();
 
     mrb_get_args(mrb, "o|H", &obj, &opts);
+
+    RymlCallbacks cb(mrb);
+    cb.set_callbacks();
 
     ryml::Tree tree;
     auto root = tree.rootref();
@@ -246,6 +301,9 @@ mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
             flg |= PARSER_FLAG_SYMBOLIZE_NAMES;
         }
     }
+
+    RymlCallbacks cb(mrb);
+    cb.set_callbacks();
 
     ryml::Tree tree = ryml::parse_in_arena((const char *)yaml);
     ryml::ConstNodeRef root = tree.crootref();
