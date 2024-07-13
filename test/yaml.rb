@@ -25,3 +25,9 @@ assert('YAML.#load') do
   assert_equal([1, 2, 3], YAML.load("- 1\n- 2\n- 3"), 'Array')
   assert_equal({ 'name' => 'Alice', 'age' => 30 }, YAML.load("name: Alice\nage: 30"), 'Hash')
 end
+
+assert('YAML.#load_file') do
+  skip unless Object.const_defined?(:IO)
+
+  assert_equal({ 'mruby' => 'rapidyaml' }, YAML.load_file('test/fixtures/test.yaml'), 'test.yml')
+end
