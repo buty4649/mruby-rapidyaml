@@ -24,6 +24,9 @@ assert('YAML.#load') do
   assert_equal('hello', YAML.load('hello'), 'String')
   assert_equal([1, 2, 3], YAML.load("- 1\n- 2\n- 3"), 'Array')
   assert_equal({ 'name' => 'Alice', 'age' => 30 }, YAML.load("name: Alice\nage: 30"), 'Hash')
+
+  assert_raise_with_message(YAML::SyntaxError, 'ERROR: missing terminating ]') { YAML.load('[') }
+  assert_raise_with_message(YAML::SyntaxError, 'ryml trees cannot handle containers as keys') { YAML.load('[]: foo') }
 end
 
 assert('YAML.#load_file') do
