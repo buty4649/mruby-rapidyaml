@@ -25,8 +25,10 @@ struct MrbEventHandler : public c4::yml::EventHandlerStack<MrbEventHandler, MrbE
 #define _disable_(bits) _disable__<bits>()
 #define _has_any_(bits) _has_any__<bits>()
 
+#define _NOT_IMPLEMENTED_MSG(msg) mrb_raise(mrb, E_NOTIMP_ERROR, msg)
+
 public:
-    MrbEventHandler(mrb_state *mrb) : EventHandlerStack(), mrb(mrb), arena(nullptr), arena_size(0)
+    MrbEventHandler(mrb_state *mrb, ryml::Callbacks const& cb) : EventHandlerStack(cb), mrb(mrb), arena(nullptr), arena_size(0)
     {
         _stack_reset_root();
         m_curr->flags |= c4::yml::RUNK | c4::yml::RTOP;
@@ -138,47 +140,47 @@ public:
     }
 
 public:
-    void set_key_anchor(c4::csubstr scalar)
-    {
-    }
-
-    void set_key_ref(c4::csubstr scalar)
-    {
-    }
-
-    void set_key_scalar_dquoted(c4::csubstr scalar)
-    {
-    }
-
-    void set_key_scalar_folded(c4::csubstr scalar)
-    {
-    }
-
-    void set_key_scalar_literal(c4::csubstr scalar)
-    {
-    }
-
     void set_key_scalar_plain(c4::csubstr scalar)
     {
         m_curr->key = mrb_str_new(mrb, scalar.str, scalar.len);
     }
 
+    void set_key_anchor(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_key_anchor");
+    }
+
+    void set_key_ref(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_key_ref");
+    }
+
+    void set_key_scalar_dquoted(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_key_scalar_dquoted");
+    }
+
+    void set_key_scalar_folded(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_key_scalar_folded");
+    }
+
+    void set_key_scalar_literal(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_key_scalar_literal");
+    }
+
     void set_key_scalar_squoted(c4::csubstr scalar)
     {
+        _NOT_IMPLEMENTED_MSG("set_key_scalar_squoted");
     }
 
     void set_key_tag(c4::csubstr scalar)
     {
+        _NOT_IMPLEMENTED_MSG("set_key_tag");
     }
 
-    void set_val_anchor(c4::csubstr scalar)
-    {
-    }
-
-    void set_val_ref(c4::csubstr scalar)
-    {
-    }
-
+public:
     void set_val_scalar_plain(c4::csubstr scalar)
     {
         mrb_value v = scalar_to_mrb_value(scalar);
@@ -209,6 +211,16 @@ public:
         set_mrb_value(v, c4::yml::VAL_LITERAL);
     }
 
+    void set_val_anchor(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_val_anchor");
+    }
+
+    void set_val_ref(c4::csubstr scalar)
+    {
+        _NOT_IMPLEMENTED_MSG("set_val_ref");
+    }
+
     void set_val_tag(c4::csubstr scalar)
     {
         C4_NOT_IMPLEMENTED_MSG("set_val_tag");
@@ -227,15 +239,16 @@ public:
 
     void add_directive(c4::csubstr directive)
     {
+        _NOT_IMPLEMENTED_MSG("add_directive");
     }
 
     void mark_key_scalar_unfiltered()
     {
-        C4_NOT_IMPLEMENTED_MSG("mark_key_scalar_unfiltered");
+        _NOT_IMPLEMENTED_MSG("mark_key_scalar_unfiltered");
     }
     void mark_val_scalar_unfiltered()
     {
-        C4_NOT_IMPLEMENTED_MSG("mark_val_scalar_unfiltered");
+        _NOT_IMPLEMENTED_MSG("mark_val_scalar_unfiltered");
     }
 
 public:
@@ -252,6 +265,8 @@ public:
 
     void add_sibling()
     {
+        _RYML_CB_ASSERT(m_stack.m_callbacks, m_parent);
+        m_curr->ev_data = {};
     }
 
     c4::substr alloc_arena(size_t len, c4::substr *relocated)

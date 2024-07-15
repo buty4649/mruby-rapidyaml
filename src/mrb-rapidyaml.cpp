@@ -8,7 +8,6 @@
 #define RYML_SINGLE_HDR_DEFINE_NOW
 #define RYML_NO_DEFAULT_CALLBACKS
 #define RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS
-#define C4_ALWAYS_INLINE
 #include "ryml_all.hpp"
 #include "event_handler.hpp"
 
@@ -222,7 +221,7 @@ mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
     RymlCallbacks cb(mrb);
     cb.set_callbacks();
 
-    MrbEventHandler handler(mrb);
+    MrbEventHandler handler(mrb, ryml::get_callbacks());
     c4::yml::ParseEngine<MrbEventHandler> parser(&handler);
     parser.parse_in_place_ev("-", c4::to_substr(yaml));
 
