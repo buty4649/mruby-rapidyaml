@@ -9,10 +9,7 @@
 #define RYML_NO_DEFAULT_CALLBACKS
 #define RYML_DEFAULT_CALLBACK_USES_EXCEPTIONS
 #include "ryml_all.hpp"
-
-#define scalar_to_mrb_str(v) mrb_str_new(mrb, v.str, v.len)
-#define scalar_is_true(v) (v == "true" || v == "True" || v == "TRUE")
-#define scalar_is_false(v) (v == "false" || v == "False" || v == "FALSE")
+#include "event_handler.hpp"
 
 #define PARSER_FLAG_NONE 0
 #define PARSER_FLAG_SYMBOLIZE_NAMES 1
@@ -199,87 +196,6 @@ mrb_value mrb_ryaml_dump(mrb_state *mrb, mrb_value self)
     return mrb_str_new(mrb, output.str, output.len - 1);
 }
 
-mrb_value scalar_to_mrb_value(mrb_state *mrb, c4::csubstr scalar)
-{
-    if (ryml::scalar_is_null(scalar))
-    {
-        return mrb_nil_value();
-    }
-
-    if (scalar.is_integer())
-    {
-        return mrb_str_to_integer(mrb, scalar_to_mrb_str(scalar), 10, false);
-    }
-
-    if (scalar.is_real())
-    {
-        mrb_value f = scalar_to_mrb_str(scalar);
-        return mrb_float_value(mrb, mrb_str_to_dbl(mrb, f, false));
-    }
-    if (scalar == ".nan" || scalar == ".NaN" || scalar == ".NAN")
-    {
-        return mrb_float_value(mrb, NAN);
-    }
-    if (scalar == ".inf" || scalar == ".Inf" || scalar == ".INF")
-    {
-        return mrb_float_value(mrb, INFINITY);
-    }
-
-    if (scalar == "-.inf" || scalar == "-.Inf" || scalar == "-.INF")
-    {
-        return mrb_float_value(mrb, -INFINITY);
-    }
-
-    if (scalar_is_true(scalar))
-    {
-        return mrb_true_value();
-    }
-    if (scalar_is_false(scalar))
-    {
-        return mrb_false_value();
-    }
-
-    ryml::NodeType type = ryml::scalar_style_choose(scalar);
-    if (scalar.begins_with(":") && scalar.len > 1 && !type.is_quoted())
-    {
-        return mrb_symbol_value(mrb_intern(mrb, scalar.str + 1, scalar.len - 1));
-    }
-
-    return scalar_to_mrb_str(scalar);
-}
-
-mrb_value yaml_value_to_mrb_value(mrb_state *mrb, ryml::ConstNodeRef node, parser_flag flg)
-{
-    if (node.is_seq())
-    {
-        mrb_value ary = mrb_ary_new(mrb);
-        for (auto child : node.children())
-        {
-            mrb_ary_push(mrb, ary, yaml_value_to_mrb_value(mrb, child, flg));
-        }
-        return ary;
-    }
-
-    if (node.is_map())
-    {
-        mrb_value hash = mrb_hash_new(mrb);
-        for (auto c : node.children())
-        {
-            mrb_value key = scalar_to_mrb_value(mrb, c.key());
-            if ((flg & PARSER_FLAG_SYMBOLIZE_NAMES) > 0 && mrb_string_p(key))
-            {
-                key = mrb_symbol_value(mrb_intern_str(mrb, key));
-            }
-            mrb_value val = yaml_value_to_mrb_value(mrb, c, flg);
-            mrb_hash_set(mrb, hash, key, val);
-        }
-
-        return hash;
-    }
-
-    return scalar_to_mrb_value(mrb, node.val());
-}
-
 mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
 {
     char *yaml;
@@ -305,10 +221,11 @@ mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
     RymlCallbacks cb(mrb);
     cb.set_callbacks();
 
-    ryml::Tree tree = ryml::parse_in_arena((const char *)yaml);
-    ryml::ConstNodeRef root = tree.crootref();
+    MrbEventHandler handler(mrb, ryml::get_callbacks());
+    c4::yml::ParseEngine<MrbEventHandler> parser(&handler);
+    parser.parse_in_place_ev("-", c4::to_substr(yaml));
 
-    return yaml_value_to_mrb_value(mrb, root, flg);
+    return handler.result();
 }
 
 extern "C"
