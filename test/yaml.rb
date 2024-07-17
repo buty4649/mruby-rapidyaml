@@ -141,7 +141,19 @@ assert('YAML.#load') do
       "foo\nbar": foobar
       'abc\ndef': abcdef
     YAML
-    assert_equal({ "foo\nbar" => 'foobar' }, YAML.load(%q("foo\nbar": foobar)), 'block style')
+
+    assert_equal({ "foo bar\n" => 'foobar' }, YAML.load(<<~YAML), 'Hash with foleded key')
+      ? >
+        foo
+        bar
+      : foobar
+    YAML
+    assert_equal({ "foo\nbar\n" => 'foobar' }, YAML.load(<<~YAML), 'Hash with literal key')
+      ? |
+        foo
+        bar
+      : foobar
+    YAML
 
     assert_equal({ 'people' => %w[Alice Bob] }, YAML.load(<<~YAML), 'Hash with Array')
       people:

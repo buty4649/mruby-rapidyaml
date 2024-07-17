@@ -28,7 +28,7 @@ struct MrbEventHandler : public c4::yml::EventHandlerStack<MrbEventHandler, MrbE
 #define _NOT_IMPLEMENTED_MSG(msg) mrb_raise(mrb, E_NOTIMP_ERROR, msg)
 
 public:
-    MrbEventHandler(mrb_state *mrb, ryml::Callbacks const& cb) : EventHandlerStack(cb), mrb(mrb), arena(nullptr), arena_size(0)
+    MrbEventHandler(mrb_state *mrb, ryml::Callbacks const &cb) : EventHandlerStack(cb), mrb(mrb), arena(nullptr), arena_size(0)
     {
         _stack_reset_root();
         m_curr->flags |= c4::yml::RUNK | c4::yml::RTOP;
@@ -143,6 +143,18 @@ public:
         _enable_(c4::yml::KEY | c4::yml::KEY_SQUO);
     }
 
+    void set_key_scalar_folded(c4::csubstr scalar)
+    {
+        m_curr->key = scalar_to_mrb_str(scalar);
+        _enable_(c4::yml::KEY | c4::yml::KEY_FOLDED);
+    }
+
+    void set_key_scalar_literal(c4::csubstr scalar)
+    {
+        m_curr->key = scalar_to_mrb_str(scalar);
+        _enable_(c4::yml::KEY | c4::yml::KEY_LITERAL);
+    }
+
     void set_key_anchor(c4::csubstr scalar)
     {
         _NOT_IMPLEMENTED_MSG("set_key_anchor");
@@ -151,16 +163,6 @@ public:
     void set_key_ref(c4::csubstr scalar)
     {
         _NOT_IMPLEMENTED_MSG("set_key_ref");
-    }
-
-    void set_key_scalar_folded(c4::csubstr scalar)
-    {
-        _NOT_IMPLEMENTED_MSG("set_key_scalar_folded");
-    }
-
-    void set_key_scalar_literal(c4::csubstr scalar)
-    {
-        _NOT_IMPLEMENTED_MSG("set_key_scalar_literal");
     }
 
     void set_key_tag(c4::csubstr scalar)
