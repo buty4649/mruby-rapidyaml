@@ -65,29 +65,14 @@ public:
     }
 
 public:
-    void begin_stream()
-    {
-    }
+    void begin_stream() {}
+    void end_stream() {}
 
-    void end_stream()
-    {
-    }
+    void begin_doc() {}
+    void end_doc() {}
 
-    void begin_doc()
-    {
-    }
-
-    void end_doc()
-    {
-    }
-
-    void begin_doc_expl()
-    {
-    }
-
-    void end_doc_expl()
-    {
-    }
+    void begin_doc_expl() {}
+    void end_doc_expl() {}
 
     void begin_map_key_block()
     {
@@ -142,7 +127,20 @@ public:
 public:
     void set_key_scalar_plain(c4::csubstr scalar)
     {
-        m_curr->key = mrb_str_new(mrb, scalar.str, scalar.len);
+        m_curr->key = scalar_to_mrb_value(scalar);
+        _enable_(c4::yml::KEY | c4::yml::KEY_PLAIN);
+    }
+
+    void set_key_scalar_dquoted(c4::csubstr scalar)
+    {
+        m_curr->key = scalar_to_mrb_str(scalar);
+        _enable_(c4::yml::KEY | c4::yml::KEY_DQUO);
+    }
+
+    void set_key_scalar_squoted(c4::csubstr scalar)
+    {
+        m_curr->key = scalar_to_mrb_str(scalar);
+        _enable_(c4::yml::KEY | c4::yml::KEY_SQUO);
     }
 
     void set_key_anchor(c4::csubstr scalar)
@@ -155,11 +153,6 @@ public:
         _NOT_IMPLEMENTED_MSG("set_key_ref");
     }
 
-    void set_key_scalar_dquoted(c4::csubstr scalar)
-    {
-        _NOT_IMPLEMENTED_MSG("set_key_scalar_dquoted");
-    }
-
     void set_key_scalar_folded(c4::csubstr scalar)
     {
         _NOT_IMPLEMENTED_MSG("set_key_scalar_folded");
@@ -168,11 +161,6 @@ public:
     void set_key_scalar_literal(c4::csubstr scalar)
     {
         _NOT_IMPLEMENTED_MSG("set_key_scalar_literal");
-    }
-
-    void set_key_scalar_squoted(c4::csubstr scalar)
-    {
-        _NOT_IMPLEMENTED_MSG("set_key_scalar_squoted");
     }
 
     void set_key_tag(c4::csubstr scalar)
@@ -187,16 +175,16 @@ public:
         set_mrb_value(v, c4::yml::VAL_PLAIN);
     }
 
-    void set_val_scalar_squoted(c4::csubstr scalar)
-    {
-        mrb_value v = scalar_to_mrb_str(scalar);
-        set_mrb_value(v, c4::yml::VAL_SQUO);
-    }
-
     void set_val_scalar_dquoted(c4::csubstr scalar)
     {
         mrb_value v = scalar_to_mrb_str(scalar);
         set_mrb_value(v, c4::yml::VAL_DQUO);
+    }
+
+    void set_val_scalar_squoted(c4::csubstr scalar)
+    {
+        mrb_value v = scalar_to_mrb_str(scalar);
+        set_mrb_value(v, c4::yml::VAL_SQUO);
     }
 
     void set_val_scalar_folded(c4::csubstr scalar)
@@ -306,18 +294,26 @@ private:
     void push_new_hash(c4::yml::NodeType_e type)
     {
         mrb_value new_hash = mrb_hash_new(mrb);
-        if (mrb_nil_p(m_curr->value))
+        if (mrb_array_p(m_curr->value))
         {
-            m_curr->value = new_hash;
+            mrb_ary_push(mrb, m_curr->value, new_hash);
         }
         else
         {
-            mrb_hash_set(mrb, m_curr->value, m_curr->key, new_hash);
-            m_curr->key = mrb_nil_value();
-        }
 
-        // _enable_(c4::yml::MAP | type);
-        m_curr->ev_data.m_type.type |= c4::yml::MAP | type;
+            if (mrb_nil_p(m_curr->value))
+            {
+                m_curr->value = new_hash;
+            }
+            else
+            {
+                mrb_hash_set(mrb, m_curr->value, m_curr->key, new_hash);
+                m_curr->key = mrb_nil_value();
+            }
+
+            // _enable_(c4::yml::MAP | type);
+            m_curr->ev_data.m_type.type |= c4::yml::MAP | type;
+        }
 
         _push();
         m_curr->value = new_hash;
@@ -326,27 +322,37 @@ private:
     void push_new_array(c4::yml::NodeType_e type)
     {
         mrb_value new_ary = mrb_ary_new(mrb);
-        if (mrb_nil_p(m_curr->value))
+        if (mrb_hash_p(m_curr->value))
         {
-            m_curr->value = new_ary;
+            if (_has_any_(c4::yml::KEY))
+            {
+                // m_curr->key is already set, new_ary is the value
+                // e.g. {m_curr->key: [new_ary]}
+                mrb_hash_set(mrb, m_curr->value, m_curr->key, new_ary);
+            }
+            else
+            {
+                // new_ary is the key, e.g. {[new_ary]: value}
+                m_curr->key = new_ary;
+            }
         }
         else
         {
-            mrb_ary_push(mrb, m_curr->value, new_ary);
-        }
+            if (mrb_nil_p(m_curr->value))
+            {
+                m_curr->value = new_ary;
+            }
+            else if (mrb_array_p(m_curr->value))
+            {
+                mrb_ary_push(mrb, m_curr->value, new_ary);
+            }
 
-        // _enable_(c4::yml::SEQ | type);
-        m_curr->ev_data.m_type.type |= c4::yml::SEQ | type;
+            // _enable_(c4::yml::SEQ | type);
+            m_curr->ev_data.m_type.type |= c4::yml::SEQ | type;
+        }
 
         _push();
         m_curr->value = new_ary;
-    }
-
-    C4_ALWAYS_INLINE bool scalar_is_null(c4::csubstr scalar)
-    {
-        return scalar.len == 0 ||
-               scalar == "null" || scalar == "Null" || scalar == "NULL" ||
-               scalar == "~";
     }
 
     C4_ALWAYS_INLINE bool scalar_is_true(c4::csubstr scalar)
@@ -367,7 +373,7 @@ private:
 
     mrb_value scalar_to_mrb_value(c4::csubstr scalar)
     {
-        if (scalar_is_null(scalar))
+        if (ryml::scalar_is_null(scalar))
         {
             return mrb_nil_value();
         }
@@ -403,7 +409,8 @@ private:
             return mrb_float_value(mrb, NAN);
         }
 
-        if (scalar == ".inf" || scalar == ".Inf" || scalar == ".INF")
+        if (scalar == ".inf" || scalar == ".Inf" || scalar == ".INF" ||
+            scalar == "+.inf" || scalar == "+.Inf" || scalar == "+.INF")
         {
             return mrb_float_value(mrb, INFINITY);
         }
