@@ -11,11 +11,6 @@
 #include "ryml_all.hpp"
 #include "event_handler.hpp"
 
-#define PARSER_FLAG_NONE 0
-#define PARSER_FLAG_SYMBOLIZE_NAMES 1
-
-typedef uint32_t parser_flag;
-
 #define mrb_obj_to_s(mrb, obj) mrb_funcall_id(mrb, obj, MRB_SYM(to_s), 0)
 
 struct RymlCallbacks
@@ -200,28 +195,27 @@ mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
 {
     char *yaml;
     mrb_value opts = mrb_nil_value();
-    parser_flag flg = PARSER_FLAG_NONE;
-
     mrb_get_args(mrb, "z|H", &yaml, &opts);
 
-    if (yaml == NULL || strlen(yaml) == 0)
-    {
-        return mrb_nil_value();
-    }
+    RymlCallbacks cb(mrb);
+    cb.set_callbacks();
+    MrbEventHandler handler(mrb, ryml::get_callbacks());
 
     if (mrb_hash_p(opts) && mrb_hash_size(mrb, opts) > 0)
     {
         mrb_value symbolize_names = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(symbolize_names)));
         if (mrb_test(symbolize_names))
         {
-            flg |= PARSER_FLAG_SYMBOLIZE_NAMES;
+            handler.symbolize_names = true;
+        }
+
+        mrb_value aliases = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(aliases)));
+        if (mrb_test(aliases))
+        {
+            handler.aliases = true;
         }
     }
 
-    RymlCallbacks cb(mrb);
-    cb.set_callbacks();
-
-    MrbEventHandler handler(mrb, ryml::get_callbacks());
     c4::yml::ParseEngine<MrbEventHandler> parser(&handler);
     parser.parse_in_place_ev("-", c4::to_substr(yaml));
 

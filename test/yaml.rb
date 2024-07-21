@@ -180,6 +180,37 @@ assert('YAML.#load') do
   end
 
   assert_raise_with_message(YAML::SyntaxError, 'ERROR: missing terminating ]') { YAML.load('[') }
+
+  assert('Anchor') do
+    yaml_str = <<~YAML
+      foo: &key_foo bar_value
+      &key_baz baz: 123
+      items: &items
+        - item1
+        - item2
+      sequence:
+        - *items
+        - [1, 2, 3]
+      qux: &key_qux QUX
+      *key_qux: *key_foo
+    YAML
+
+    parsed = YAML.load(yaml_str, aliases: true)
+
+    assert_equal(parsed['foo'], 'bar_value', 'Anchor in map value')
+    assert_equal(parsed['baz'], 123, 'Anchor in map key')
+    assert_equal(parsed['items'], ['item1', 'item2'], 'Anchor in sequence value')
+    assert_equal(parsed['sequence'], [['item1', 'item2'], [1, 2, 3]], 'Sequence with anchor reference')
+    assert_equal(parsed['QUX'], 'bar_value', 'Dereferenced key anchor')
+
+    assert_raise_with_message(YAML::AliasesNotEnabled, 'aliases are not allowed') do
+      YAML.load('*key_unknown: value')
+    end
+
+    assert_raise_with_message(YAML::AnchorNotDefined, 'anchor not defined: *key_unknown') do
+      YAML.load('*key_unknown: value', aliases: true)
+    end
+end
 end
 
 assert('YAML.#load_file') do

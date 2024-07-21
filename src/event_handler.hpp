@@ -2,24 +2,31 @@
 #include "ryml_all.hpp"
 #endif
 
-#ifndef MRUBY_H
 #include <mruby.h>
-#endif
+#include <mruby/presym.h>
+
+#define E_YAML_ALIASES_NOT_ENABLED mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(YAML)), MRB_SYM(AliasesNotEnabled))
+#define E_YAML_ANCHOR_NOT_DEFINED mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(YAML)), MRB_SYM(AnchorNotDefined))
+#define E_YAML_SYNTAX_ERROR mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(YAML)), MRB_SYM(SyntaxError))
 
 struct MrbEventHandlerState : public c4::yml::ParserState
 {
     c4::yml::NodeData ev_data;
     mrb_value value;
     mrb_value key;
+    mrb_value anchor;
+
+    MrbEventHandlerState() : ParserState()
+    {
+        value = mrb_nil_value();
+        key = mrb_nil_value();
+        anchor = mrb_nil_value();
+    }
 };
 
 struct MrbEventHandler : public c4::yml::EventHandlerStack<MrbEventHandler, MrbEventHandlerState>
 {
     using state = MrbEventHandlerState;
-
-    mrb_state *mrb;
-    char *arena;
-    size_t arena_size;
 
 #define _enable_(bits) _enable__<bits>()
 #define _disable_(bits) _disable__<bits>()
@@ -27,8 +34,19 @@ struct MrbEventHandler : public c4::yml::EventHandlerStack<MrbEventHandler, MrbE
 
 #define _NOT_IMPLEMENTED_MSG(msg) mrb_raise(mrb, E_NOTIMP_ERROR, msg)
 
+private:
+    mrb_state *mrb;
+    char *arena;
+    size_t arena_size;
+    mrb_value anchors;
+
 public:
-    MrbEventHandler(mrb_state *mrb, ryml::Callbacks const &cb) : EventHandlerStack(cb), mrb(mrb), arena(nullptr), arena_size(0)
+    bool aliases;
+    bool symbolize_names;
+
+    MrbEventHandler(mrb_state *mrb, ryml::Callbacks const &cb) : EventHandlerStack(cb),
+                                                                 mrb(mrb), arena(nullptr), arena_size(0), anchors(mrb_hash_new(mrb)),
+                                                                 aliases(false), symbolize_names(false)
     {
         _stack_reset_root();
         m_curr->flags |= c4::yml::RUNK | c4::yml::RTOP;
@@ -121,53 +139,90 @@ public:
 
     void end_seq()
     {
+        if (m_parent->ev_data.m_type.has_val_anchor())
+        {
+            mrb_hash_set(mrb, anchors, m_curr->anchor, m_curr->value);
+            m_parent->anchor = mrb_nil_value();
+            m_parent->ev_data.m_type.type &= ~c4::yml::VALANCH;
+        }
+
         _pop();
     }
 
 public:
     void set_key_scalar_plain(c4::csubstr scalar)
     {
-        m_curr->key = scalar_to_mrb_value(scalar);
-        _enable_(c4::yml::KEY | c4::yml::KEY_PLAIN);
+        set_key(scalar, c4::yml::KEY_PLAIN);
     }
 
     void set_key_scalar_dquoted(c4::csubstr scalar)
     {
-        m_curr->key = scalar_to_mrb_str(scalar);
-        _enable_(c4::yml::KEY | c4::yml::KEY_DQUO);
+        set_key(scalar, c4::yml::KEY_DQUO);
     }
 
     void set_key_scalar_squoted(c4::csubstr scalar)
     {
-        m_curr->key = scalar_to_mrb_str(scalar);
-        _enable_(c4::yml::KEY | c4::yml::KEY_SQUO);
+        set_key(scalar, c4::yml::KEY_SQUO);
     }
 
     void set_key_scalar_folded(c4::csubstr scalar)
     {
-        m_curr->key = scalar_to_mrb_str(scalar);
-        _enable_(c4::yml::KEY | c4::yml::KEY_FOLDED);
+        set_key(scalar, c4::yml::KEY_FOLDED);
     }
 
     void set_key_scalar_literal(c4::csubstr scalar)
     {
-        m_curr->key = scalar_to_mrb_str(scalar);
-        _enable_(c4::yml::KEY | c4::yml::KEY_LITERAL);
+        set_key(scalar, c4::yml::KEY_LITERAL);
     }
 
     void set_key_anchor(c4::csubstr scalar)
     {
-        _NOT_IMPLEMENTED_MSG("set_key_anchor");
+        m_curr->anchor = validate_and_convert_anchor(scalar);
+        _enable_(c4::yml::KEY | c4::yml::KEYANCH);
     }
 
     void set_key_ref(c4::csubstr scalar)
     {
-        _NOT_IMPLEMENTED_MSG("set_key_ref");
+        mrb_value ref = validate_and_convert_anchor(scalar.triml("*"));
+        if (!mrb_hash_key_p(mrb, anchors, ref))
+        {
+            raise_error(E_YAML_ANCHOR_NOT_DEFINED, "anchor not defined: %.*s", scalar.len, scalar.str);
+        }
+        set_key(mrb_hash_get(mrb, anchors, ref), c4::yml::KEYREF);
     }
 
     void set_key_tag(c4::csubstr scalar)
     {
         _NOT_IMPLEMENTED_MSG("set_key_tag");
+    }
+
+    void set_key(c4::csubstr scalar, c4::yml::NodeType_e type)
+    {
+        mrb_value key;
+        if (type == c4::yml::KEY_PLAIN)
+        {
+            key = scalar_to_mrb_value(scalar);
+        }
+        else
+        {
+            key = scalar_to_mrb_str(scalar);
+        }
+        set_key(key, type);
+    }
+
+    void set_key(mrb_value key, c4::yml::NodeType_e type)
+    {
+        m_curr->key = key;
+
+        if (_has_any_(c4::yml::KEYANCH))
+        {
+            mrb_hash_set(mrb, anchors, m_curr->anchor, key);
+            m_curr->anchor = mrb_nil_value();
+            _disable_(c4::yml::KEYANCH);
+        }
+
+        // _enable_(c4::yml::KEY | type);
+        m_curr->ev_data.m_type.type |= c4::yml::KEY | type;
     }
 
 public:
@@ -203,22 +258,28 @@ public:
 
     void set_val_anchor(c4::csubstr scalar)
     {
-        _NOT_IMPLEMENTED_MSG("set_val_anchor");
+        m_curr->anchor = validate_and_convert_anchor(scalar);
+        _enable_(c4::yml::VAL | c4::yml::VALANCH);
     }
 
     void set_val_ref(c4::csubstr scalar)
     {
-        _NOT_IMPLEMENTED_MSG("set_val_ref");
+        mrb_value ref = validate_and_convert_anchor(scalar.triml("*"));
+        if (!mrb_hash_key_p(mrb, anchors, ref))
+        {
+            raise_error(E_YAML_ANCHOR_NOT_DEFINED, "anchor not defined: %.*s", scalar.len, scalar.str);
+        }
+        set_mrb_value(mrb_hash_get(mrb, anchors, ref), c4::yml::VALREF);
     }
 
     void set_val_tag(c4::csubstr scalar)
     {
-        C4_NOT_IMPLEMENTED_MSG("set_val_tag");
+        _NOT_IMPLEMENTED_MSG("set_val_tag");
     }
 
     void actually_val_is_first_key_of_new_map_flow()
     {
-        C4_NOT_IMPLEMENTED_MSG("actually_val_is_first_key_of_new_map_flow");
+        _NOT_IMPLEMENTED_MSG("actually_val_is_first_key_of_new_map_flow");
     }
     void actually_val_is_first_key_of_new_map_block()
     {
@@ -239,6 +300,33 @@ public:
     void mark_val_scalar_unfiltered()
     {
         _NOT_IMPLEMENTED_MSG("mark_val_scalar_unfiltered");
+    }
+
+    void set_mrb_value(mrb_value v, c4::yml::NodeType_e type)
+    {
+        if (mrb_hash_p(m_curr->value))
+        {
+            mrb_hash_set(mrb, m_curr->value, m_curr->key, v);
+            m_curr->key = mrb_nil_value();
+        }
+        else if (mrb_array_p(m_curr->value))
+        {
+            mrb_ary_push(mrb, m_curr->value, v);
+        }
+        else
+        {
+            m_curr->value = v;
+        }
+
+        if (_has_any_(c4::yml::VALANCH))
+        {
+            mrb_hash_set(mrb, anchors, m_curr->anchor, v);
+            m_curr->anchor = mrb_nil_value();
+            _disable_(c4::yml::VALANCH);
+        }
+
+        // _enable_(c4::yml::VAL | type);
+        m_curr->ev_data.m_type.type |= c4::yml::VAL | type;
     }
 
 public:
@@ -309,7 +397,12 @@ private:
             }
             else
             {
-                mrb_hash_set(mrb, m_curr->value, m_curr->key, new_hash);
+                mrb_value key = m_curr->key;
+                if (symbolize_names && mrb_string_p(key))
+                {
+                    key = mrb_symbol_value(mrb_intern_str(mrb, key));
+                }
+                mrb_hash_set(mrb, m_curr->value, key, new_hash);
                 m_curr->key = mrb_nil_value();
             }
 
@@ -425,24 +518,59 @@ private:
         return scalar_to_mrb_str(scalar);
     }
 
-    void set_mrb_value(mrb_value v, c4::yml::NodeType_e type)
+    mrb_value validate_and_convert_anchor(c4::csubstr scalar)
     {
-        if (mrb_hash_p(m_curr->value))
+        if (!aliases)
         {
-            mrb_hash_set(mrb, m_curr->value, m_curr->key, v);
-            m_curr->key = mrb_nil_value();
-        }
-        else if (mrb_array_p(m_curr->value))
-        {
-            mrb_ary_push(mrb, m_curr->value, v);
-        }
-        else
-        {
-            m_curr->value = v;
+            raise_error(E_YAML_ALIASES_NOT_ENABLED, "aliases are not allowed");
         }
 
-        // _enable_(c4::yml::VAL | type);
-        m_curr->ev_data.m_type.type |= c4::yml::VAL | type;
+        if (!validate_anchor_name(scalar))
+        {
+            raise_error(E_YAML_SYNTAX_ERROR, "invalid anchor: %.*s", scalar.len, scalar.str);
+        }
+
+        return scalar_to_mrb_str(scalar);
+    }
+
+    bool validate_anchor_name(c4::csubstr scalar)
+    {
+        if (scalar.empty())
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < scalar.len; ++i)
+        {
+            char c = scalar[i];
+            if ((c >= '0' && c <= '9') || (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c == '-')
+            {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    void raise_error(struct RClass *exc, const char *msg, ...)
+    {
+        va_list args;
+
+        va_start(args, msg);
+        size_t size = std::vsnprintf(nullptr, 0, msg, args);
+        va_end(args);
+
+        if (size < 0)
+        {
+            mrb_raise(mrb, E_RUNTIME_ERROR, "could not format error message");
+        }
+
+        std::string error_msg(size, '\0');
+        va_start(args, msg);
+        std::vsnprintf(&error_msg[0], size + 1, msg, args);
+        va_end(args);
+
+        mrb_raise(mrb, exc, error_msg.c_str());
     }
 
 #undef _enable_
