@@ -1,8 +1,8 @@
 assert('Object#to_yaml') do
   obj = Object.new
-  opts = Hash.new
+  opts = {}
 
-  stub = -> (v, o) do
+  stub = lambda do |v, o|
     assert_equal obj, v
     assert_equal opts, o
     'stub'
