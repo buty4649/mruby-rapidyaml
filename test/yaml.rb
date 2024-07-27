@@ -10,6 +10,17 @@ assert('YAML.#dump') do
   assert_equal('hello', YAML.dump('hello'), 'String')
   assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'Array')
   assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'Hash')
+
+  assert('colorize') do
+    assert_equal('null'.gray, YAML.dump(nil, colorize: true), 'nil')
+    assert_equal('hello'.green, YAML.dump('hello', colorize: true), 'String')
+    assert_equal("#{'hello'.blue}: 123", YAML.dump({ 'hello' => 123 }, colorize: true), 'Hash')
+
+    old_color_string = YAML.color_string
+    YAML.color_string = :red
+    assert_equal('hello'.red, YAML.dump('hello', colorize: true), 'String')
+    YAML.color_string = old_color_string
+  end
 end
 
 assert('YAML.#load') do

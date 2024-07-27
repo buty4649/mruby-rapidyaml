@@ -7,5 +7,8 @@ MRuby::Gem::Specification.new('mruby-rapidyaml') do |spec|
 
   spec.cxx.flags << '-std=c++11'
 
+  spec.add_dependency 'mruby-terminal-color', github: 'buty4649/mruby-terminal-color', branch: 'main'
+
   spec.add_test_dependency 'mruby-io', core: 'mruby-io'
+  spec.add_test_dependency 'mruby-test-stub', github: 'buty4649/mruby-test-stub', branch: 'main'
 end
