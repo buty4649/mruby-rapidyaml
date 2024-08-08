@@ -57,8 +57,14 @@ private:
         mrb_vtype t = mrb_type(obj);
         if (mrb_nil_p(obj) || t == MRB_TT_TRUE || t == MRB_TT_FALSE || t == MRB_TT_INTEGER || t == MRB_TT_FLOAT || t == MRB_TT_STRING)
         {
-            *node |= ryml::VAL | ryml::VAL_PLAIN;
-            *node = mrb_value_to_scalar(obj);
+            auto s = mrb_value_to_scalar(obj);
+            *node = s;
+
+            if (s.find("\n") == c4::yml::npos) {
+                *node |= ryml::VAL | ryml::VAL_PLAIN;
+            } else {
+                *node |= ryml::VAL | ryml::VAL_LITERAL;
+            }
             return NULL;
         }
 
