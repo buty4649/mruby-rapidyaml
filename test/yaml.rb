@@ -27,8 +27,25 @@ assert('YAML.#dump') do
     YAML
   end
 
-  assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'Array')
-  assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'Hash')
+  assert('Array') do
+    assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'single line')
+    assert_equal(<<~YAML.chomp, YAML.dump(["a\nb"]), 'multiple lines')
+      - |-
+        a
+        b
+    YAML
+  end
+
+  assert('Hash') do
+    assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'simple key-value')
+
+    assert_equal(<<~YAML.chomp, YAML.dump({ "a\nb" => 'cd' }), 'key with newline')
+      ? |-
+        a
+        b
+      : cd
+    YAML
+  end
 
   assert('colorize') do
     assert_equal('null'.gray, YAML.dump(nil, colorize: true), 'nil')

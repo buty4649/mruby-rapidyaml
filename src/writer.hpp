@@ -60,9 +60,12 @@ private:
             auto s = mrb_value_to_scalar(obj);
             *node = s;
 
-            if (s.find("\n") == c4::yml::npos) {
+            if (s.find("\n") == c4::yml::npos)
+            {
                 *node |= ryml::VAL | ryml::VAL_PLAIN;
-            } else {
+            }
+            else
+            {
                 *node |= ryml::VAL | ryml::VAL_LITERAL;
             }
             return NULL;
@@ -109,6 +112,11 @@ private:
                 }
                 c << ryml::key(k);
                 c |= ryml::KEY_PLAIN;
+
+                if (k.find("\n") != c4::yml::npos)
+                {
+                    c |= ryml::KEY_LITERAL;
+                }
 
                 auto exc = mrb_value_to_yaml(value, &c);
                 if (exc != NULL)
