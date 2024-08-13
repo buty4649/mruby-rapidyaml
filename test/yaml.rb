@@ -7,9 +7,45 @@ assert('YAML.#dump') do
   assert_equal('.nan', YAML.dump(Float::NAN), 'nan')
   assert_equal('-.inf', YAML.dump(-Float::INFINITY), '-inf')
   assert_equal('.inf', YAML.dump(Float::INFINITY), 'inf')
-  assert_equal('hello', YAML.dump('hello'), 'String')
-  assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'Array')
-  assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'Hash')
+
+  assert('String') do
+    assert_equal('hello', YAML.dump('hello'), 'single line')
+    assert_equal(<<~YAML.chomp, "hello\nworld".to_yaml, 'multiple lines')
+      |-
+        hello
+        world
+    YAML
+    assert_equal(<<~YAML.chomp, "hello\nworld\n".to_yaml, 'end with newline')
+      |
+        hello
+        world
+    YAML
+    assert_equal(<<~YAML.chomp, "  hello\nworld".to_yaml, 'start with space')
+      |2-
+          hello
+        world
+    YAML
+  end
+
+  assert('Array') do
+    assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'single line')
+    assert_equal(<<~YAML.chomp, YAML.dump(["a\nb"]), 'multiple lines')
+      - |-
+        a
+        b
+    YAML
+  end
+
+  assert('Hash') do
+    assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'simple key-value')
+
+    assert_equal(<<~YAML.chomp, YAML.dump({ "a\nb" => 'cd' }), 'key with newline')
+      ? |-
+        a
+        b
+      : cd
+    YAML
+  end
 
   assert('colorize') do
     assert_equal('null'.gray, YAML.dump(nil, colorize: true), 'nil')
