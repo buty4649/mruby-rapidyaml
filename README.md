@@ -37,7 +37,7 @@ end
 ||||
 | Object#to_yaml        | ✓               |                |
 
-## colorize
+## Colorize
 
 The `colorize` option can be specified when using `YAML.#dump` to add colors to the output. When `colorize: true` is set, the following elements will be colored:
 
@@ -66,6 +66,23 @@ You can customize the colors using the following methods:
 - `YAML.color_object_key`: Changes the color of Object keys.
 
 To see the available colors, refer to the [mruby-terminal-color basic example](https://github.com/buty4649/mruby-terminal-color/?tab=readme-ov-file#basic-example).
+
+## YAML Parsing Differences
+
+The original rapidyaml library allows colons (:) to be included in anchors, following the YAML specification. However, both the CRuby yaml library and mruby-yaml do not support colons in anchors.For example, the following YAML will not produce an error in the CRuby yaml library or mruby-yaml. However, it will result in a parsing error in the original rapidyaml:
+
+```yaml
+foo: &foo bar
+*foo: bar
+```
+ To align with the behavior of these libraries, mruby-rapidyaml applies a [patch](https://github.com/buty4649/mruby-rapidyaml/commit/5399b585219fa40183deb5d98db4ef30f35652a4#diff-417aa3d4f5a1a55c47d6c1a9f3fbfd9e043fac55cd2196c7417adc7a5dd749d8) that removes this capability.
+
+## Limitations
+
+mruby-rapidyaml is subject to the [Known limitations](https://github.com/biojppm/rapidyaml?tab=readme-ov-file#known-limitations) of the original rapidyaml library.
+
+- Tab characters after `:` and `-` are not accepted unless mruby-rapidyaml is compiled with the `RYML_WITH_TAB_TOKENS` macro. This limitation exists because checking for tab characters introduces branching into the parser's hot code, which can increase parsing time by up to 10% in some cases.
+- The `%YAML` directive is ignored.
 
 ## License
 
