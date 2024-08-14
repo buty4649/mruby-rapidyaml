@@ -77,6 +77,13 @@ foo: &foo bar
 ```
  To align with the behavior of these libraries, mruby-rapidyaml applies a [patch](https://github.com/buty4649/mruby-rapidyaml/commit/5399b585219fa40183deb5d98db4ef30f35652a4#diff-417aa3d4f5a1a55c47d6c1a9f3fbfd9e043fac55cd2196c7417adc7a5dd749d8) that removes this capability.
 
+## Limitations
+
+mruby-rapidyaml is subject to the [Known limitations](https://github.com/biojppm/rapidyaml?tab=readme-ov-file#known-limitations) of the original rapidyaml library.
+
+- Tab characters after `:` and `-` are not accepted unless mruby-rapidyaml is compiled with the `RYML_WITH_TAB_TOKENS` macro. This limitation exists because checking for tab characters introduces branching into the parser's hot code, which can increase parsing time by up to 10% in some cases.
+- The `%YAML` directive is ignored.
+
 ## License
 
 mruby-rapidyaml is licensed under the MIT License.
