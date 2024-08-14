@@ -176,7 +176,7 @@ assert('YAML.#load') do
     YAML
   end
 
-  assert('Hash') do
+  assert('Map') do
     assert_equal({ 'foo' => 'bar' }, YAML.load('{foo: bar}'), 'flow style with double quote')
     assert_equal({ "foo\nbar" => 'bar' }, YAML.load(%q({"foo\nbar": "bar"})), 'flow style with double quote')
     assert_equal({ 'foo\nbar' => 'bar' }, YAML.load(%q({'foo\nbar': 'bar'})), 'flow style with single quote')
