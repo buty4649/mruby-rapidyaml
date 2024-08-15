@@ -223,12 +223,12 @@ assert('YAML.#load') do
       : foobar
     YAML
 
-    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with multiple keys')
+    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with Array key (block style)')
       ? - foo
         - bar
       : baz
     YAML
-    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with multiple keys')
+    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with Array key (flow style)')
       ? [foo, bar]
       : baz
     YAML
