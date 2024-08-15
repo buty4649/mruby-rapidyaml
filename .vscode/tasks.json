@@ -1,12 +1,12 @@
 {
     "tasks": [
         {
-            "type": "cppbuild",
+            "type": "shell",
             "label": "rake",
             "command": "rake",
-            "args": [ ],
+            "args": [],
             "options": {
-                "cwd": "${workspaceFolder}"
+                "cwd": "${workspaceFolder}",
             },
             "problemMatcher": [
                 "$gcc"
