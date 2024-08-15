@@ -71,7 +71,7 @@ mrb_value mrb_ryaml_dump(mrb_state *mrb, mrb_value self)
     RymlCallbacks cb(mrb);
     cb.set_callbacks();
 
-    MrbYamlWriter writer(mrb);
+    writer::MrbYamlWriter writer(mrb);
     if (mrb_hash_p(opts) && mrb_hash_size(mrb, opts) > 0)
     {
         mrb_value colorize = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(colorize)));
@@ -91,7 +91,7 @@ mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
 
     RymlCallbacks cb(mrb);
     cb.set_callbacks();
-    MrbEventHandler handler(mrb, ryml::get_callbacks());
+    event_handler::MrbEventHandler handler(mrb, ryml::get_callbacks());
 
     if (mrb_hash_p(opts) && mrb_hash_size(mrb, opts) > 0)
     {
@@ -108,7 +108,7 @@ mrb_value mrb_ryaml_load(mrb_state *mrb, mrb_value self)
         }
     }
 
-    c4::yml::ParseEngine<MrbEventHandler> parser(&handler);
+    c4::yml::ParseEngine<event_handler::MrbEventHandler> parser(&handler);
     parser.parse_in_place_ev("-", c4::to_substr(yaml));
 
     return handler.result();
