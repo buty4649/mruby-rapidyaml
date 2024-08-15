@@ -22,7 +22,15 @@ struct MrbEventHandlerState : public c4::yml::ParserState
         key = mrb_nil_value();
         anchor = mrb_nil_value();
     }
+
+    c4::csubstr type_str();
 };
+
+// Prevents inlining to allow evaluation in debug watch expressions
+c4::csubstr MrbEventHandlerState::type_str()
+{
+    return ev_data.m_type.type_str();
+}
 
 struct MrbEventHandler : public c4::yml::EventHandlerStack<MrbEventHandler, MrbEventHandlerState>
 {
