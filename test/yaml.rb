@@ -222,6 +222,16 @@ assert('YAML.#load') do
       ? {"foo": "bar"}
       : foobar
     YAML
+
+    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with multiple keys')
+      ? - foo
+        - bar
+      : baz
+    YAML
+    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with multiple keys')
+      ? [foo, bar]
+      : baz
+    YAML
   end
 
   assert_raise_with_message(YAML::SyntaxError, 'ERROR: missing terminating ]') { YAML.load('[') }
