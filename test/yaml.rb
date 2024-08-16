@@ -26,6 +26,7 @@ assert('YAML.#dump') do
         world
     YAML
   end
+  assert_equal(':foo', YAML.dump(:foo), 'Symbol')
 
   assert('Array') do
     assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'single line')
@@ -49,8 +50,19 @@ assert('YAML.#dump') do
 
   assert('colorize') do
     assert_equal('null'.gray, YAML.dump(nil, colorize: true), 'nil')
+    assert_equal('true'.yellow, YAML.dump(true, colorize: true), 'true')
+    assert_equal('false'.yellow, YAML.dump(false, colorize: true), 'false')
     assert_equal('hello'.green, YAML.dump('hello', colorize: true), 'String')
-    assert_equal("#{'hello'.blue}: 123", YAML.dump({ 'hello' => 123 }, colorize: true), 'Hash')
+
+    got = YAML.dump({ 'level1' => { 'level2' => { 'level3' => { 'level4' => { 'level5' => 'mruby-yyson' } } } } },
+                    colorize: true)
+    assert_equal(<<~YAML.chomp, got, 'Hash')
+      #{'level1'.blue}:
+        #{'level2'.cyan}:
+          #{'level3'.magenta}:
+            #{'level4'.red}:
+              #{'level5'.blue}: #{'mruby-yyson'.green}
+    YAML
 
     old_color_string = YAML.color_string
     YAML.color_string = :red
