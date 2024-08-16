@@ -11,8 +11,8 @@ module YAML
       end
     end
 
-    def color_object_key
-      @color_object_key ||= :blue
+    def color_map_key
+      @color_map_key ||= :blue
     end
 
     def color_string
@@ -23,6 +23,6 @@ module YAML
       @color_null ||= :gray
     end
 
-    attr_writer :color_object_key, :color_string, :color_null
+    attr_writer :color_map_key, :color_string, :color_null
   end
 end

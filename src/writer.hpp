@@ -110,7 +110,7 @@ namespace writer
 
                     if (colorize)
                     {
-                        k = set_color(MRB_SYM(color_object_key), k);
+                        k = set_color(MRB_SYM(color_map_key), k);
                     }
                     c << ryml::key(k);
                     c |= ryml::KEY_PLAIN;

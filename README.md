@@ -26,16 +26,16 @@ end
 
 ## Implemented Methods
 
-| Method                | mruby-rapidyaml | Description    |
-|-----------------------|-----------------|----------------|
-| YAML.#dump            | ✓               |                |
-| YAML.#load            | ✓               |                |
-| YAML.#load_file       | ✓               | needs mruby-io |
-| YAML.color_null       | ✓               | see. colorize  |
-| YAML.color_string     | ✓               | see. colorize  |
-| YAML.color_object_key | ✓               | see. colorize  |
+| Method             | mruby-rapidyaml | Description    |
+|--------------------|-----------------|----------------|
+| YAML.#dump         | ✓               |                |
+| YAML.#load         | ✓               |                |
+| YAML.#load_file    | ✓               | needs mruby-io |
+| YAML.color_null    | ✓               | see. colorize  |
+| YAML.color_string  | ✓               | see. colorize  |
+| YAML.color_map_key | ✓               | see. colorize  |
 ||||
-| Object#to_yaml        | ✓               |                |
+| Object#to_yaml     | ✓               |                |
 
 ## Colorize
 
@@ -63,7 +63,7 @@ You can customize the colors using the following methods:
 
 - `YAML.color_null`: Changes the color of null values.
 - `YAML.color_string`: Changes the color of string values.
-- `YAML.color_object_key`: Changes the color of Object keys.
+- `YAML.color_map_key`: Changes the color of Map keys.
 
 To see the available colors, refer to the [mruby-terminal-color basic example](https://github.com/buty4649/mruby-terminal-color/?tab=readme-ov-file#basic-example).
 
