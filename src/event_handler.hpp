@@ -12,6 +12,8 @@ namespace event_handler
 #define E_YAML_ANCHOR_NOT_DEFINED mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(YAML)), MRB_SYM(AnchorNotDefined))
 #define E_YAML_SYNTAX_ERROR mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(YAML)), MRB_SYM(SyntaxError))
 
+#define RSTRING_CSUBSTR(str) c4::csubstr(RSTRING_PTR(str), RSTRING_LEN(str))
+
     struct MrbEventHandlerState : public c4::yml::ParserState
     {
         c4::yml::NodeData ev_data;
@@ -30,6 +32,8 @@ namespace event_handler
 
         bool is_map() const { return ev_data.m_type.is_map(); }
         bool is_seq() const { return ev_data.m_type.is_seq(); }
+        bool has_anchor() const { return ev_data.m_type.has_anchor(); }
+        bool has_val() const { return ev_data.m_type.has_val(); }
     };
 
     // Prevents inlining to allow evaluation in debug watch expressions
@@ -153,13 +157,6 @@ namespace event_handler
 
         void end_seq()
         {
-            if (m_parent->ev_data.m_type.has_val_anchor())
-            {
-                mrb_hash_set(mrb, anchors, m_curr->anchor, m_curr->value);
-                m_parent->anchor = mrb_nil_value();
-                m_parent->ev_data.m_type.type &= ~c4::yml::VALANCH;
-            }
-
             _pop();
         }
 
@@ -272,17 +269,34 @@ namespace event_handler
         void set_val_anchor(c4::csubstr scalar)
         {
             m_curr->anchor = validate_and_convert_anchor(scalar);
-            _enable_(c4::yml::VAL | c4::yml::VALANCH);
+            if (m_curr->has_val())
+            {
+                _enable_(c4::yml::KEYANCH);
+            }
+            else
+            {
+                _enable_(c4::yml::VALANCH);
+            }
         }
 
         void set_val_ref(c4::csubstr scalar)
         {
-            mrb_value ref = validate_and_convert_anchor(scalar.triml("*"));
-            if (!mrb_hash_key_p(mrb, anchors, ref))
+            mrb_value anchor = validate_and_convert_anchor(scalar.triml("*"));
+            if (!mrb_hash_key_p(mrb, anchors, anchor))
             {
                 raise_error(E_YAML_ANCHOR_NOT_DEFINED, "anchor not defined: %.*s", scalar.len, scalar.str);
             }
-            set_mrb_value(mrb_hash_get(mrb, anchors, ref), c4::yml::VALREF);
+
+            auto ref = mrb_hash_get(mrb, anchors, anchor);
+
+            if (aliases && RSTRING_CSUBSTR(m_curr->key).compare("<<") >= 0 && mrb_hash_p(ref))
+            {
+                mrb_hash_merge(mrb, m_curr->value, ref);
+            }
+            else
+            {
+                set_mrb_value(ref, c4::yml::VALREF);
+            }
         }
 
         void set_val_tag(c4::csubstr scalar)
@@ -351,8 +365,16 @@ namespace event_handler
         {
             _stack_pop();
 
+            if (m_curr->has_anchor())
+            {
+                mrb_hash_set(mrb, anchors, m_curr->anchor, m_curr->value);
+                m_curr->anchor = mrb_nil_value();
+                m_curr->ev_data.m_type.type &= ~(c4::yml::KEYANCH | c4::yml::VALANCH);
+            }
+
             if (m_parent != nullptr && m_parent->is_map())
             {
+                // if the key is not set, then the value is the key
                 if (_has_any_(c4::yml::KEY))
                 {
                     mrb_hash_set(mrb, m_parent->value, m_curr->key, m_curr->value);
