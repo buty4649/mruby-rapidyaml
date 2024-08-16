@@ -214,16 +214,24 @@ assert('YAML.#load') do
     assert_equal({ %w[foo bar] => 'foobar' }, YAML.load('[foo, bar]: foobar'), 'Hash with Array key (flow style)')
     assert_equal({ { 'foo' => 'bar' } => 'foobar' }, YAML.load('{foo: bar}: foobar'), 'Hash with Hash key')
 
-    skip('Hash with explicit key is not supported yet') do
-      assert_equal({ { 'foo' => 'bar' } => 'foobar' }, YAML.load(<<~YAML), 'Hash with explicit key')
-        ? foo: bar
-        : foobar
-      YAML
-      assert_equal({ { 'foo' => 'bar' } => 'foobar' }, YAML.load(<<~YAML), 'Hash with explicit key (flow style)')
-        ? {"foo": "bar"}
-        : foobar
-      YAML
-    end
+    assert_equal({ { 'foo' => 'bar' } => 'foobar' }, YAML.load(<<~YAML), 'Hash with explicit key')
+      ? foo: bar
+      : foobar
+    YAML
+    assert_equal({ { 'foo' => 'bar' } => 'foobar' }, YAML.load(<<~YAML), 'Hash with explicit key (flow style)')
+      ? {"foo": "bar"}
+      : foobar
+    YAML
+
+    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with Array key (block style)')
+      ? - foo
+        - bar
+      : baz
+    YAML
+    assert_equal({ %w[foo bar] => 'baz' }, YAML.load(<<~YAML), 'Hash with Array key (flow style)')
+      ? [foo, bar]
+      : baz
+    YAML
   end
 
   assert_raise_with_message(YAML::SyntaxError, 'ERROR: missing terminating ]') { YAML.load('[') }

@@ -27,6 +27,9 @@ namespace event_handler
         }
 
         c4::csubstr type_str();
+
+        bool is_map() const { return ev_data.m_type.is_map(); }
+        bool is_seq() const { return ev_data.m_type.is_seq(); }
     };
 
     // Prevents inlining to allow evaluation in debug watch expressions
@@ -232,7 +235,6 @@ namespace event_handler
                 _disable_(c4::yml::KEYANCH);
             }
 
-            // _enable_(c4::yml::KEY | type);
             m_curr->ev_data.m_type.type |= c4::yml::KEY | type;
         }
 
@@ -315,14 +317,13 @@ namespace event_handler
 
         void set_mrb_value(mrb_value v, c4::yml::NodeType_e type)
         {
-            if (mrb_hash_p(m_curr->value))
+            if (m_parent != nullptr && m_parent->is_map())
             {
-                mrb_hash_set(mrb, m_curr->value, m_curr->key, v);
-                m_curr->key = mrb_nil_value();
+                mrb_hash_set(mrb, m_parent->value, m_curr->key, v);
             }
-            else if (mrb_array_p(m_curr->value))
+            else if (m_parent != nullptr && m_parent->is_seq())
             {
-                mrb_ary_push(mrb, m_curr->value, v);
+                mrb_ary_push(mrb, m_parent->value, v);
             }
             else
             {
@@ -336,7 +337,6 @@ namespace event_handler
                 _disable_(c4::yml::VALANCH);
             }
 
-            // _enable_(c4::yml::VAL | type);
             m_curr->ev_data.m_type.type |= c4::yml::VAL | type;
         }
 
@@ -350,6 +350,24 @@ namespace event_handler
         void _pop()
         {
             _stack_pop();
+
+            if (m_parent != nullptr && m_parent->is_map())
+            {
+                if (_has_any_(c4::yml::KEY))
+                {
+                    mrb_hash_set(mrb, m_parent->value, m_curr->key, m_curr->value);
+                }
+                else
+                {
+                    m_curr->key = m_curr->value;
+                    m_curr->value = mrb_nil_value();
+                    m_curr->ev_data.m_type.type = c4::yml::KEY;
+                }
+            }
+            else if (m_parent != nullptr && m_parent->is_seq())
+            {
+                mrb_ary_push(mrb, m_parent->value, m_curr->value);
+            }
         }
 
         void add_sibling()
@@ -395,70 +413,19 @@ namespace event_handler
         void push_new_hash(c4::yml::NodeType_e type)
         {
             mrb_value new_hash = mrb_hash_new(mrb);
-            if (mrb_array_p(m_curr->value))
-            {
-                mrb_ary_push(mrb, m_curr->value, new_hash);
-            }
-            else
-            {
-
-                if (mrb_nil_p(m_curr->value))
-                {
-                    m_curr->value = new_hash;
-                }
-                else
-                {
-                    mrb_value key = m_curr->key;
-                    if (symbolize_names && mrb_string_p(key))
-                    {
-                        key = mrb_symbol_value(mrb_intern_str(mrb, key));
-                    }
-                    mrb_hash_set(mrb, m_curr->value, key, new_hash);
-                    m_curr->key = mrb_nil_value();
-                }
-
-                // _enable_(c4::yml::MAP | type);
-                m_curr->ev_data.m_type.type |= c4::yml::MAP | type;
-            }
+            m_curr->value = new_hash;
+            m_curr->ev_data.m_type.type |= c4::yml::MAP | type;
 
             _push();
-            m_curr->value = new_hash;
         }
 
         void push_new_array(c4::yml::NodeType_e type)
         {
             mrb_value new_ary = mrb_ary_new(mrb);
-            if (mrb_hash_p(m_curr->value))
-            {
-                if (_has_any_(c4::yml::KEY))
-                {
-                    // m_curr->key is already set, new_ary is the value
-                    // e.g. {m_curr->key: [new_ary]}
-                    mrb_hash_set(mrb, m_curr->value, m_curr->key, new_ary);
-                }
-                else
-                {
-                    // new_ary is the key, e.g. {[new_ary]: value}
-                    m_curr->key = new_ary;
-                }
-            }
-            else
-            {
-                if (mrb_nil_p(m_curr->value))
-                {
-                    m_curr->value = new_ary;
-                }
-                else if (mrb_array_p(m_curr->value))
-                {
-                    mrb_ary_push(mrb, m_curr->value, new_ary);
-                }
-
-                // _enable_(c4::yml::SEQ | type);
-                m_curr->ev_data.m_type.type |= c4::yml::SEQ | type;
-            }
+            m_curr->value = new_ary;
+            m_curr->ev_data.m_type.type |= c4::yml::SEQ | type;
 
             _push();
-            m_curr->value = new_ary;
         }
 
         C4_ALWAYS_INLINE bool scalar_is_true(c4::csubstr scalar)
