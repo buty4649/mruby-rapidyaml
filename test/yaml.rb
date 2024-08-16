@@ -180,6 +180,7 @@ assert('YAML.#load') do
     assert_equal({ 'foo' => 'bar' }, YAML.load('{foo: bar}'), 'flow style with double quote')
     assert_equal({ "foo\nbar" => 'bar' }, YAML.load(%q({"foo\nbar": "bar"})), 'flow style with double quote')
     assert_equal({ 'foo\nbar' => 'bar' }, YAML.load(%q({'foo\nbar': 'bar'})), 'flow style with single quote')
+    assert_equal({ '<<' => 'bar' }, YAML.load('{<<: bar}'), 'flow style with <<')
 
     expect = { 'foo' => 'bar', nil => 'null', "foo\nbar" => 'foobar', 'abc\ndef' => 'abcdef' }
     assert_equal(expect, YAML.load(<<~'YAML'), 'block style')
@@ -248,15 +249,33 @@ assert('YAML.#load') do
         - [1, 2, 3]
       qux: &key_qux QUX
       *key_qux: *key_foo
+      map_items: &map_items
+        key1: value1
+        key2: value2
+      map:
+        <<: *map_items
+        key1: new value1
+        key3: value3
+      map2:
+        key1: new value1
+        <<: *map_items
+        key2: new value2
+      map3:
+        <<: *key_foo
     YAML
 
     parsed = YAML.load(yaml_str, aliases: true)
 
-    assert_equal(parsed['foo'], 'bar_value', 'Anchor in map value')
-    assert_equal(parsed['baz'], 123, 'Anchor in map key')
-    assert_equal(parsed['items'], %w[item1 item2], 'Anchor in sequence value')
-    assert_equal(parsed['sequence'], [%w[item1 item2], [1, 2, 3]], 'Sequence with anchor reference')
-    assert_equal(parsed['QUX'], 'bar_value', 'Dereferenced key anchor')
+    assert_equal('bar_value', parsed['foo'], 'Anchor in map value')
+    assert_equal(123, parsed['baz'], 'Anchor in map key')
+    assert_equal(%w[item1 item2], parsed['items'], 'Anchor in sequence value')
+    assert_equal([%w[item1 item2], [1, 2, 3]], parsed['sequence'], 'Sequence with anchor reference')
+    assert_equal('bar_value', parsed['QUX'], 'Dereferenced key anchor')
+    assert_equal({ 'key1' => 'value1', 'key2' => 'value2' }, parsed['map_items'], 'Anchor in map value')
+    assert_equal({ 'key1' => 'new value1', 'key2' => 'value2', 'key3' => 'value3' }, parsed['map'],
+                 'Map with anchor reference')
+    assert_equal({ 'key1' => 'value1', 'key2' => 'new value2' }, parsed['map2'], 'Map with anchor reference')
+    assert_equal({ '<<' => 'bar_value' }, parsed['map3'], 'Map with anchor reference')
 
     assert_raise_with_message(YAML::AliasesNotEnabled, 'aliases are not allowed') do
       YAML.load('*key_unknown: value')
