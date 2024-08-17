@@ -31,7 +31,7 @@ namespace writer
         {
             ryml::Tree tree;
             auto root = tree.rootref();
-            struct RException *exc = mrb_value_to_yaml(obj, &root);
+            struct RException *exc = mrb_value_to_yaml(obj, &root, 0);
 
             if (exc != NULL)
             {
@@ -54,26 +54,9 @@ namespace writer
         }
 
     private:
-        struct RException *mrb_value_to_yaml(mrb_value obj, ryml::NodeRef *node)
+        struct RException *mrb_value_to_yaml(mrb_value obj, ryml::NodeRef *node, size_t depth)
         {
-            mrb_vtype t = mrb_type(obj);
-            if (mrb_nil_p(obj) || t == MRB_TT_TRUE || t == MRB_TT_FALSE || t == MRB_TT_INTEGER || t == MRB_TT_FLOAT || t == MRB_TT_STRING)
-            {
-                auto s = mrb_value_to_scalar(obj);
-                *node = s;
-
-                if (s.find("\n") == c4::yml::npos)
-                {
-                    *node |= ryml::VAL | ryml::VAL_PLAIN;
-                }
-                else
-                {
-                    *node |= ryml::VAL | ryml::VAL_LITERAL;
-                }
-                return NULL;
-            }
-
-            if (t == MRB_TT_ARRAY)
+            if (mrb_array_p(obj))
             {
                 *node |= ryml::SEQ;
                 mrb_int len = RARRAY_LEN(obj);
@@ -82,16 +65,14 @@ namespace writer
                     mrb_value v = mrb_ary_ref(mrb, obj, i);
 
                     auto c = node->append_child();
-                    auto exc = mrb_value_to_yaml(v, &c);
+                    auto exc = mrb_value_to_yaml(v, &c, depth + 1);
                     if (exc != NULL)
                     {
                         return exc;
                     }
                 }
-
-                return NULL;
             }
-            else if (t == MRB_TT_HASH)
+            else if (mrb_hash_p(obj))
             {
                 *node |= ryml::MAP;
                 mrb_value keys = mrb_hash_keys(mrb, obj);
@@ -110,7 +91,10 @@ namespace writer
 
                     if (colorize)
                     {
-                        k = set_color(MRB_SYM(color_object_key), k);
+                        // depth is 0-based, so we need to add 1
+                        auto color_map_key = mrb_funcall_id(mrb, yaml_module(), MRB_SYM(color_map_key), 1, mrb_int_value(mrb, depth + 1));
+                        auto key = mrb_str_set_color(mrb, mrb_str_new(mrb, k.str, k.len), color_map_key, mrb_nil_value(), mrb_nil_value());
+                        k = c4::csubstr(RSTRING_PTR(key));
                     }
                     c << ryml::key(k);
                     c |= ryml::KEY_PLAIN;
@@ -120,17 +104,29 @@ namespace writer
                         c |= ryml::KEY_LITERAL;
                     }
 
-                    auto exc = mrb_value_to_yaml(value, &c);
+                    auto exc = mrb_value_to_yaml(value, &c, depth + 1);
                     if (exc != NULL)
                     {
                         return exc;
                     }
                 }
+            }
+            else
+            {
+                auto s = mrb_value_to_scalar(obj);
+                *node = s;
 
-                return NULL;
+                if (s.find("\n") == c4::yml::npos)
+                {
+                    *node |= ryml::VAL | ryml::VAL_PLAIN;
+                }
+                else
+                {
+                    *node |= ryml::VAL | ryml::VAL_LITERAL;
+                }
             }
 
-            return mrb_value_to_yaml(mrb_obj_to_s(mrb, obj), node);
+            return NULL;
         }
 
         c4::csubstr mrb_value_to_scalar(mrb_value obj)
@@ -146,32 +142,37 @@ namespace writer
             switch (mrb_type(obj))
             {
             case MRB_TT_TRUE:
-                result = c4::csubstr("true");
+                result = c4::csubstr(colorize ? set_color(MRB_SYM(color_boolean), "true") : "true");
                 break;
 
             case MRB_TT_FALSE:
-                result = c4::csubstr("false");
+                result = c4::csubstr(colorize ? set_color(MRB_SYM(color_boolean), "false") : "false");
                 break;
 
             case MRB_TT_INTEGER:
-                result = c4::csubstr(RSTRING_CSTR(mrb, mrb_obj_to_s(mrb, obj)));
+            {
+                auto s = RSTRING_PTR(mrb_obj_to_s(mrb, obj));
+                result = c4::csubstr(colorize ? set_color(MRB_SYM(color_number), s) : s);
                 break;
+            }
 
             case MRB_TT_FLOAT:
             {
                 mrb_float f = mrb_float(obj);
+                c4::csubstr s;
                 if (isnan(f))
                 {
-                    result = c4::csubstr(".nan");
+                    s = c4::csubstr(".nan");
                 }
                 else if (isinf(f))
                 {
-                    result = c4::csubstr(f > 0 ? ".inf" : "-.inf");
+                    s = c4::csubstr(f > 0 ? ".inf" : "-.inf");
                 }
                 else
                 {
-                    result = c4::csubstr(RSTRING_CSTR(mrb, mrb_obj_to_s(mrb, obj)));
+                    s = c4::csubstr(RSTRING_CSTR(mrb, mrb_obj_to_s(mrb, obj)));
                 }
+                result = c4::csubstr(colorize ? set_color(MRB_SYM(color_number), s) : s);
                 break;
             }
 
@@ -183,7 +184,8 @@ namespace writer
             {
                 std::string sym;
                 ryml::formatrs(&sym, ":{}", RSTRING_CSTR(mrb, mrb_obj_to_s(mrb, obj)));
-                result = c4::csubstr(sym.c_str());
+                auto s = mrb_str_new_cstr(mrb, sym.c_str());
+                result = c4::csubstr(colorize ? set_color(MRB_SYM(color_string), RSTRING_PTR(s)) : RSTRING_PTR(s));
                 break;
             }
 
