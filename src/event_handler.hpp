@@ -452,12 +452,16 @@ namespace event_handler
 
         C4_ALWAYS_INLINE bool scalar_is_true(c4::csubstr scalar)
         {
-            return scalar == "true" || scalar == "True" || scalar == "TRUE";
+            return scalar == "true" || scalar == "True" || scalar == "TRUE" ||
+                   scalar == "yes" || scalar == "Yes" || scalar == "YES" ||
+                   scalar == "on" || scalar == "On" || scalar == "ON";
         }
 
         C4_ALWAYS_INLINE bool scalar_is_false(c4::csubstr scalar)
         {
-            return scalar == "false" || scalar == "False" || scalar == "FALSE";
+            return scalar == "false" || scalar == "False" || scalar == "FALSE" ||
+                   scalar == "no" || scalar == "No" || scalar == "NO" ||
+                   scalar == "off" || scalar == "Off" || scalar == "OFF";
         }
 
         C4_ALWAYS_INLINE mrb_value scalar_to_mrb_str(c4::csubstr scalar)

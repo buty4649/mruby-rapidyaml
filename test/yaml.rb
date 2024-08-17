@@ -80,12 +80,17 @@ assert('YAML.#load') do
   end
 
   assert('Boolean') do
-    %w[true True TRUE].each do |value|
+    %w[true True TRUE yes Yes YES on On ON].each do |value|
       assert_equal(true, YAML.load(value), value)
     end
 
-    %w[false False FALSE].each do |value|
+    %w[false False FALSE no No NO off Off OFF].each do |value|
       assert_equal(false, YAML.load(value), value)
+    end
+
+    # NOT boolean
+    %w[y Y n N].each do |value|
+      assert_equal(value, YAML.load(value), "NOT boolean value: #{value}")
     end
   end
 
