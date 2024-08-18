@@ -75,9 +75,12 @@ mrb_value mrb_ryaml_dump(mrb_state *mrb, mrb_value self)
     if (mrb_hash_p(opts) && mrb_hash_size(mrb, opts) > 0)
     {
         mrb_value colorize = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(colorize)));
-        if (mrb_test(colorize))
+        writer.colorize = mrb_test(colorize);
+
+        mrb_value header = mrb_hash_get(mrb, opts, mrb_symbol_value(MRB_SYM(header)));
+        if (!mrb_nil_p(header))
         {
-            writer.colorize = TRUE;
+            writer.header = mrb_test(header);
         }
     }
     return writer.emit_yaml(obj);

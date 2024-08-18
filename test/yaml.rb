@@ -1,73 +1,94 @@
 assert('YAML.#dump') do
-  assert_equal('null', YAML.dump(nil), 'nil')
-  assert_equal('true', YAML.dump(true), 'true')
-  assert_equal('false', YAML.dump(false), 'false')
-  assert_equal('42', YAML.dump(42), 'fixnum')
-  assert_equal('3.14', YAML.dump(3.14), 'float')
-  assert_equal('.nan', YAML.dump(Float::NAN), 'nan')
-  assert_equal('-.inf', YAML.dump(-Float::INFINITY), '-inf')
-  assert_equal('.inf', YAML.dump(Float::INFINITY), 'inf')
+  assert('with header') do
+    assert_equal('--- null', YAML.dump(nil), 'nil')
+    assert_equal('--- true', YAML.dump(true), 'true')
+    assert_equal('--- false', YAML.dump(false), 'false')
+    assert_equal('--- 42', YAML.dump(42), 'fixnum')
+    assert_equal('--- 3.14', YAML.dump(3.14), 'float')
+    assert_equal('--- .nan', YAML.dump(Float::NAN), 'nan')
+    assert_equal('--- -.inf', YAML.dump(-Float::INFINITY), '-inf')
+    assert_equal('--- .inf', YAML.dump(Float::INFINITY), 'inf')
 
-  assert('String') do
-    assert_equal('hello', YAML.dump('hello'), 'single line')
-    assert_equal(<<~YAML.chomp, "hello\nworld".to_yaml, 'multiple lines')
-      |-
-        hello
-        world
-    YAML
-    assert_equal(<<~YAML.chomp, "hello\nworld\n".to_yaml, 'end with newline')
-      |
-        hello
-        world
-    YAML
-    assert_equal(<<~YAML.chomp, "  hello\nworld".to_yaml, 'start with space')
-      |2-
+    assert('String') do
+      assert_equal('--- hello', YAML.dump('hello'), 'single line')
+      assert_equal(<<~YAML.chomp, "hello\nworld".to_yaml, 'multiple lines')
+        --- |-
           hello
-        world
-    YAML
+          world
+      YAML
+      assert_equal(<<~YAML.chomp, "hello\nworld\n".to_yaml, 'end with newline')
+        --- |
+          hello
+          world
+      YAML
+      assert_equal(<<~YAML.chomp, "  hello\nworld".to_yaml, 'start with space')
+        --- |2-
+            hello
+          world
+      YAML
+    end
+    assert_equal('--- :foo', YAML.dump(:foo), 'Symbol')
+
+    assert('Array') do
+      assert_equal("---\n- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'single line')
+      assert_equal(<<~YAML.chomp, YAML.dump(["a\nb"]), 'multiple lines')
+        ---
+        - |-
+          a
+          b
+      YAML
+    end
+
+    assert('Hash') do
+      assert_equal("---\nname: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'simple key-value')
+
+      assert_equal(<<~YAML.chomp, YAML.dump({ "a\nb" => 'cd' }), 'key with newline')
+        ---
+        ? |-
+          a
+          b
+        : cd
+      YAML
+    end
+
+    assert('colorize') do
+      assert_equal("--- #{'null'.gray}", YAML.dump(nil, colorize: true), 'nil')
+      assert_equal("--- #{'true'.yellow}", YAML.dump(true, colorize: true), 'true')
+      assert_equal("--- #{'false'.yellow}", YAML.dump(false, colorize: true), 'false')
+      assert_equal("--- #{'hello'.green}", YAML.dump('hello', colorize: true), 'String')
+
+      got = YAML.dump({ 'level1' => { 'level2' => { 'level3' => { 'level4' => { 'level5' => 'mruby-yyson' } } } } },
+                      colorize: true)
+      assert_equal(<<~YAML.chomp, got, 'Hash')
+        ---
+        #{'level1'.blue}:
+          #{'level2'.cyan}:
+            #{'level3'.magenta}:
+              #{'level4'.red}:
+                #{'level5'.blue}: #{'mruby-yyson'.green}
+      YAML
+
+      old_color_string = YAML.color_string
+      YAML.color_string = :red
+      assert_equal("--- #{'hello'.red}", YAML.dump('hello', colorize: true), 'String')
+      YAML.color_string = old_color_string
+    end
   end
-  assert_equal(':foo', YAML.dump(:foo), 'Symbol')
 
-  assert('Array') do
-    assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3]), 'single line')
-    assert_equal(<<~YAML.chomp, YAML.dump(["a\nb"]), 'multiple lines')
-      - |-
-        a
-        b
-    YAML
-  end
-
-  assert('Hash') do
-    assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }), 'simple key-value')
-
-    assert_equal(<<~YAML.chomp, YAML.dump({ "a\nb" => 'cd' }), 'key with newline')
-      ? |-
-        a
-        b
-      : cd
-    YAML
-  end
-
-  assert('colorize') do
-    assert_equal('null'.gray, YAML.dump(nil, colorize: true), 'nil')
-    assert_equal('true'.yellow, YAML.dump(true, colorize: true), 'true')
-    assert_equal('false'.yellow, YAML.dump(false, colorize: true), 'false')
-    assert_equal('hello'.green, YAML.dump('hello', colorize: true), 'String')
-
-    got = YAML.dump({ 'level1' => { 'level2' => { 'level3' => { 'level4' => { 'level5' => 'mruby-yyson' } } } } },
-                    colorize: true)
-    assert_equal(<<~YAML.chomp, got, 'Hash')
-      #{'level1'.blue}:
-        #{'level2'.cyan}:
-          #{'level3'.magenta}:
-            #{'level4'.red}:
-              #{'level5'.blue}: #{'mruby-yyson'.green}
-    YAML
-
-    old_color_string = YAML.color_string
-    YAML.color_string = :red
-    assert_equal('hello'.red, YAML.dump('hello', colorize: true), 'String')
-    YAML.color_string = old_color_string
+  assert('without header') do
+    assert_equal('null', YAML.dump(nil, header: false), 'nil')
+    assert_equal('true', YAML.dump(true, header: false), 'true')
+    assert_equal('false', YAML.dump(false, header: false), 'false')
+    assert_equal('42', YAML.dump(42, header: false), 'fixnum')
+    assert_equal('3.14', YAML.dump(3.14, header: false), 'float')
+    assert_equal('.nan', YAML.dump(Float::NAN, header: false), 'nan')
+    assert_equal('-.inf', YAML.dump(-Float::INFINITY, header: false), '-inf')
+    assert_equal('.inf', YAML.dump(Float::INFINITY, header: false), 'inf')
+    assert_equal('hello', YAML.dump('hello', header: false), 'single line')
+    assert_equal("- 1\n- 2\n- 3", YAML.dump([1, 2, 3], header: false), 'single line')
+    assert_equal("name: Alice\nage: 30", YAML.dump({ 'name' => 'Alice', 'age' => 30 }, header: false),
+                 'simple key-value')
+    assert_equal('hello'.green, YAML.dump('hello', colorize: true, header: false), 'colorize')
   end
 end
 
