@@ -7778,8 +7778,7 @@ using parse_options = parse_options_t<char>;
 #endif
 
 #if ((defined(_WIN32) || defined(_WIN64)) && !defined(__clang__))
-//included above:
-//#include <intrin.h>
+#include <intrin.h>
 #endif
 
 #if defined(_MSC_VER) && !defined(__clang__)
