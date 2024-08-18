@@ -22,9 +22,10 @@ namespace writer
 
     public:
         bool colorize;
+        bool header;
 
     public:
-        MrbYamlWriter(mrb_state *mrb) : mrb(mrb), colorize(false) {}
+        MrbYamlWriter(mrb_state *mrb) : mrb(mrb), colorize(false), header(true) {}
         ~MrbYamlWriter() {}
 
         mrb_value emit_yaml(mrb_value obj)
@@ -45,7 +46,14 @@ namespace writer
             output = ryml::emit_yaml(tree, tree.root_id(), ryml::to_substr(buf), true);
 
             // remove the trailing newline
-            return mrb_str_new(mrb, output.str, output.len - 1);
+            auto yaml = mrb_str_new(mrb, output.str, output.len - 1);
+            if (!header) {
+                return yaml;
+            }
+
+            auto is_scalar = !(tree.rootref().is_seq() || tree.rootref().is_map());
+            auto header = mrb_str_new_cstr(mrb, is_scalar ? "--- " : "---\n");
+            return mrb_str_append(mrb, header, yaml);
         }
 
         mrb_value yaml_module()
